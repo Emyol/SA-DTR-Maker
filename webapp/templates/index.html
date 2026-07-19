@@ -1,69 +1,95 @@
 {% extends "base.html" %}
 {% block title %}DTR Helper — Upload{% endblock %}
 {% block content %}
-<form action="{{ url_for('dtr.generate') }}" method="post" enctype="multipart/form-data" novalidate>
-  <div class="card">
-    <h2 class="card-title">1. Upload your time-log spreadsheet</h2>
 
-    <label class="file-drop" id="file-drop">
-      <input type="file" name="spreadsheet" id="file-input" accept=".xlsx" required>
-      <svg class="file-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="file-drop-title">Click to choose a file, or drag it here</div>
-      <div class="file-drop-hint">.xlsx only, up to 4 MB</div>
-      <div class="file-drop-selected" id="file-drop-selected"></div>
-    </label>
-    <p class="hint" style="margin-top:var(--space-2);">
-      Two side-by-side logs — ONLINE and ONSITE — each with real Excel dates and
-      times. Name is read from your sheet automatically; the layout can be
-      shifted from the sample as long as the ONLINE/ONSITE labels are present.
-    </p>
+<header class="brand-header">
+  <div class="brand-chip">
+    <span class="brand-avatar">D</span>
+    <span>iCARE · Student Assistant</span>
   </div>
+  <h1>DTR Helper</h1>
+  <p>Fill the Student Assistant Daily Time Record from a time-log spreadsheet.</p>
+</header>
 
-  <div class="card">
-    <h2 class="card-title">2. Confirm the details on the form (optional)</h2>
+<form action="{{ url_for('dtr.generate') }}" method="post" enctype="multipart/form-data" novalidate>
+  <section class="card">
+    <div class="step-row">
+      <span class="step-badge step-badge--active">1</span>
+      <h2 class="step-title step-title--active">Upload your time-log spreadsheet</h2>
+    </div>
+    <p class="step-sub">Required</p>
+
+    <label class="dropzone" id="file-drop">
+      <input type="file" name="spreadsheet" id="file-input" accept=".xlsx" required>
+      <div class="dropzone-empty">
+        <span class="dropzone-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </span>
+        <div class="dropzone-title">Click to choose a file, or drag it here</div>
+        <div class="dropzone-hint">.xlsx only · up to 4 MB</div>
+      </div>
+      <div class="dropzone-selected">
+        <span class="dropzone-check">✓</span>
+        <div>
+          <div class="dropzone-selected-label">Selected</div>
+          <div class="dropzone-selected-name" id="dropzone-filename"></div>
+          <div class="dropzone-selected-hint">Click to choose a different file</div>
+        </div>
+      </div>
+    </label>
+
+    <div class="info-box">
+      <span class="info-icon">i</span>
+      <span>Put virtual duties under the <strong>ONLINE</strong> columns and onsite duties under <strong>ONSITE</strong>. Copy the sample workbook and replace the data — cell positions are auto-detected.</span>
+    </div>
+  </section>
+
+  <section class="card card--optional">
+    <div class="step-row">
+      <span class="step-badge">2</span>
+      <h2 class="step-title">Confirm the details on the form</h2>
+      <span class="badge-optional">Optional</span>
+    </div>
+    <p class="step-sub">Overrides for the pre-filled defaults</p>
+
     <div class="field">
-      <label class="label" for="name">Name override</label>
-      <input class="input" type="text" id="name" name="name" placeholder="Leave blank to use the name from the spreadsheet" maxlength="200">
+      <label class="field-label" for="name">Name override</label>
+      <input class="field-input" type="text" id="name" name="name" placeholder="Leave blank to use the name from the spreadsheet" maxlength="200">
     </div>
     <div class="field-grid">
       <div class="field">
-        <label class="label" for="term">Term</label>
-        <input class="input" type="text" id="term" name="term" value="{{ defaults.term }}" maxlength="200">
+        <label class="field-label" for="term">Term</label>
+        <input class="field-input" type="text" id="term" name="term" value="{{ defaults.term }}" maxlength="200">
       </div>
       <div class="field">
-        <label class="label" for="school_year">School Year</label>
-        <input class="input" type="text" id="school_year" name="school_year" value="{{ defaults.school_year }}" maxlength="200">
+        <label class="field-label" for="school_year">School Year</label>
+        <input class="field-input" type="text" id="school_year" name="school_year" value="{{ defaults.school_year }}" maxlength="200">
       </div>
       <div class="field">
-        <label class="label" for="office">Office</label>
-        <input class="input" type="text" id="office" name="office" value="{{ defaults.office }}" maxlength="200">
+        <label class="field-label" for="office">Office</label>
+        <input class="field-input" type="text" id="office" name="office" value="{{ defaults.office }}" maxlength="200">
       </div>
       <div class="field">
-        <label class="label" for="supervisor">Supervisor</label>
-        <input class="input" type="text" id="supervisor" name="supervisor" value="{{ defaults.supervisor }}" maxlength="200">
+        <label class="field-label" for="supervisor">Supervisor</label>
+        <input class="field-input" type="text" id="supervisor" name="supervisor" value="{{ defaults.supervisor }}" maxlength="200">
       </div>
     </div>
-  </div>
+  </section>
 
-  <button type="submit" class="btn btn-primary" id="submit-btn" style="margin-top:var(--space-6);">
-    Generate DTR
-  </button>
+  <button type="submit" class="btn-generate" id="submit-btn">Generate DTR</button>
 </form>
 
 <script>
   (function () {
     var drop = document.getElementById("file-drop");
     var input = document.getElementById("file-input");
-    var selected = document.getElementById("file-drop-selected");
+    var filename = document.getElementById("dropzone-filename");
     var form = drop.closest("form");
     var submitBtn = document.getElementById("submit-btn");
 
     function showFile() {
       if (input.files && input.files[0]) {
-        selected.textContent = "Selected: " + input.files[0].name;
+        filename.textContent = input.files[0].name;
         drop.classList.add("has-file");
       } else {
         drop.classList.remove("has-file");
@@ -74,16 +100,10 @@
     ["dragenter", "dragover"].forEach(function (evt) {
       drop.addEventListener(evt, function (e) {
         e.preventDefault();
-        drop.classList.add("is-dragover");
-      });
-    });
-    ["dragleave", "drop"].forEach(function (evt) {
-      drop.addEventListener(evt, function (e) {
-        e.preventDefault();
-        drop.classList.remove("is-dragover");
       });
     });
     drop.addEventListener("drop", function (e) {
+      e.preventDefault();
       if (e.dataTransfer.files.length) {
         input.files = e.dataTransfer.files;
         showFile();

@@ -1,23 +1,27 @@
 {% extends "base.html" %}
 {% block title %}DTR Helper — Something's off{% endblock %}
+{% block container_class %}container--narrow{% endblock %}
 {% block content %}
 
-<div class="alert alert-danger">
-  <p><strong>Couldn't generate the DTR.</strong></p>
+<div class="error-card">
+  <span class="error-icon">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+  </span>
+  <h1>Couldn't generate the DTR.</h1>
   <p>{{ message }}</p>
 </div>
 
 {% if anomalies %}
-<div class="card">
-  <h2 class="card-title">Details from the spreadsheet</h2>
-  <ul class="small muted" style="padding-left:var(--space-4);margin:0;">
+<div class="diagnostic-box">
+  <div class="diagnostic-label">Diagnostic details</div>
+  <ul>
     {% for a in anomalies %}
-    <li style="margin-bottom:var(--space-1);">{{ a }}</li>
+    <li>{{ a }}</li>
     {% endfor %}
   </ul>
 </div>
 {% endif %}
 
-<a class="btn btn-primary" href="{{ url_for('dtr.index') }}" style="margin-top:var(--space-6);">Try again</a>
+<a class="btn-tryagain" href="{{ url_for('dtr.index') }}">Try again</a>
 
 {% endblock %}

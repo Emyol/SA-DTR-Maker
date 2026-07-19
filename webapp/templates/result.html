@@ -2,70 +2,86 @@
 {% block title %}DTR Helper — Ready{% endblock %}
 {% block content %}
 
-<div class="alert alert-success">
-  <p><strong>Your DTR is ready.</strong> Parsed {{ entries_count }} time entr{{ 'y' if entries_count == 1 else 'ies' }} into {{ weeks|length }} week{{ '' if weeks|length == 1 else 's' }} for {{ ident.name or "(no name found)" }}.</p>
+<div class="banner banner--success">
+  <span class="banner-icon banner-icon--success">✓</span>
+  <div>
+    <div class="banner-title banner-title--success">Your DTR is ready.</div>
+    <div class="banner-text--success">Parsed <strong>{{ entries_count }}</strong> time entr{{ 'y' if entries_count == 1 else 'ies' }} into <strong>{{ weeks|length }}</strong> week{{ '' if weeks|length == 1 else 's' }} for <strong>{{ ident.name or "(no name found)" }}</strong></div>
+  </div>
 </div>
 
 {% if anomalies %}
-<div class="alert alert-warning">
-  <p><strong>{{ anomalies|length }} item{{ '' if anomalies|length == 1 else 's' }} to double-check</strong> — these were skipped or flagged, not filled into the form:</p>
-  <ul>
-    {% for a in anomalies %}
-    <li>{{ a }}</li>
-    {% endfor %}
-  </ul>
+<div class="banner banner--warning">
+  <span class="banner-icon banner-icon--warning">!</span>
+  <div style="flex:1;">
+    <div class="banner-title banner-title--warning">{{ anomalies|length }} item{{ '' if anomalies|length == 1 else 's' }} flagged and left off the form</div>
+    <ul class="banner-list">
+      {% for a in anomalies %}
+      <li>{{ a }}</li>
+      {% endfor %}
+    </ul>
+  </div>
 </div>
 {% endif %}
 
-<div class="card">
-  <div class="stat-row">
-    <div class="stat">
+<section class="card">
+  <div class="stat-grid">
+    <div class="stat-tile">
       <div class="stat-value">{{ weeks|length }}</div>
       <div class="stat-label">Weeks filled</div>
     </div>
-    <div class="stat">
+    <div class="stat-tile">
       <div class="stat-value">{{ entries_count }}</div>
       <div class="stat-label">Time entries</div>
     </div>
-    <div class="stat">
+    <div class="stat-tile">
       <div class="stat-value">{{ fmt_hours(total_hours) }}</div>
       <div class="stat-label">Total hours</div>
     </div>
   </div>
 
-  <a class="btn btn-primary"
+  <a class="btn-download"
      download="{{ filename }}"
      href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{{ docx_b64 }}">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
     Download {{ filename }}
   </a>
-  <div class="actions">
-    <a class="btn btn-secondary" href="{{ url_for('dtr.index') }}" style="flex:1;">Start over</a>
-  </div>
-  <p class="hint" style="margin-top:var(--space-3);">This file isn't stored anywhere — it only lives on this page. Leaving or refreshing means re-uploading to generate it again.</p>
-</div>
+  <a class="btn-startover" href="{{ url_for('dtr.index') }}">Start over</a>
 
-<div class="card">
-  <h2 class="card-title">Weeks included</h2>
-  <div class="week-list">
+  <div class="footnote">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+    This file lives only on this page — refreshing means re-uploading to generate it again.
+  </div>
+</section>
+
+<section class="card card--weeks">
+  <div class="weeks-header">
+    <h2>Weeks included</h2>
+    <span class="weeks-count">{{ weeks|length }} week{{ '' if weeks|length == 1 else 's' }}</span>
+  </div>
+  <div class="weeks-list dtr-scroll">
     {% for w in weeks %}
-    <div class="week">
-      <div class="week-header">
-        <span>{{ w.monday.strftime('%b %d, %Y') }} (Mon) &ndash; {{ w.saturday.strftime('%b %d, %Y') }} (Sat)</span>
-        <span class="week-total">{{ fmt_hours(w.total) }} hrs</span>
-      </div>
-      <div class="week-days">
-        {% for wd in range(6) %}
-          {% if w.days.get(wd) %}
-          <span>{{ ["Mon","Tue","Wed","Thu","Fri","Sat"][wd] }} {{ fmt_date(w.days[wd][0].date) }} ({{ w.days[wd]|length }} session{{ '' if w.days[wd]|length == 1 else 's' }})</span>
+    {% set day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] %}
+    {% set day_strs = [] %}
+    {% for wd in range(6) %}
+      {% if w.days.get(wd) %}
+        {% set _ = day_strs.append(day_labels[wd] ~ " (" ~ w.days[wd]|length ~ ")") %}
+      {% endif %}
+    {% endfor %}
+    <div class="week-row">
+      <div class="week-row-top">
+        <div class="week-range-group">
+          <span class="week-range">{{ w.monday.strftime('%b %d') }} – {{ w.saturday.strftime('%b %d, %Y') }}</span>
+          {% if w.days.get(6) %}
+          <span class="week-warning-badge">Sunday excluded</span>
           {% endif %}
-        {% endfor %}
-        {% if w.days.get(6) %}
-          <span class="badge badge-warning">Sunday entries not on form</span>
-        {% endif %}
+        </div>
+        <span class="week-total">{{ fmt_hours(w.total) }} h</span>
       </div>
+      <div class="week-days">{{ day_strs|join(' · ') }}</div>
     </div>
     {% endfor %}
   </div>
-</div>
+</section>
 
 {% endblock %}
