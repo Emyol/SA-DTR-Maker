@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Generated output (never needed in the deployed bundle - the app never
+# writes these itself when running as a serverless function)
+DTR_output.docx
+DTR_output_*.docx
+preview.txt
+docx_error.txt
+inspect_output.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local-only test artifact (not something a fresh deploy needs to ship)
+SAMPLE DTR.xlsx

@@ -33,13 +33,15 @@
     </div>
   </div>
 
-  <a class="btn btn-primary" href="{{ url_for('dtr.download', token=token) }}">
+  <a class="btn btn-primary"
+     download="{{ filename }}"
+     href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{{ docx_b64 }}">
     Download {{ filename }}
   </a>
   <div class="actions">
     <a class="btn btn-secondary" href="{{ url_for('dtr.index') }}" style="flex:1;">Start over</a>
   </div>
-  <p class="hint" style="margin-top:var(--space-3);">This download link expires after 20 minutes — regenerate if it stops working.</p>
+  <p class="hint" style="margin-top:var(--space-3);">This file isn't stored anywhere — it only lives on this page. Leaving or refreshing means re-uploading to generate it again.</p>
 </div>
 
 <div class="card">

@@ -12,18 +12,131 @@ with the daily hours, weekly totals, and "Assigned Work" all filled in for you.
 
 ## Table of contents
 
+- [Design brief (for UI redesign)](#design-brief-for-ui-redesign)
 - [What it does](#what-it-does)
 - [Repository contents](#repository-contents)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Preparing your spreadsheet](#preparing-your-spreadsheet) ← **most important**
 - [Using the web app](#using-the-web-app)
+- [Deploying to Vercel](#deploying-to-vercel)
 - [Using the command line](#using-the-command-line)
 - [Output files](#output-files)
 - [How the DTR gets filled (the rules)](#how-the-dtr-gets-filled-the-rules)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Architecture / for developers](#architecture--for-developers)
+
+---
+
+## Design brief (for UI redesign)
+
+> This section is written to stand on its own — hand it to a fresh design
+> session with no other context and it should be enough to redesign the UI.
+
+**What this app is:** a small internal tool for student assistants (at what
+the current copy calls the "iCARE" office) to turn a spreadsheet of daily
+time-in/time-out logs into a filled, printable Word DTR (Daily Time Record)
+form. One upload in, one Word document out. No accounts, no dashboard, no
+history — a single-purpose utility used occasionally (weekly/monthly), not a
+daily-driver app.
+
+**Stack the UI is built in (constraints for a redesign):**
+- Server-rendered **Flask + Jinja2** templates — not a JS framework/SPA.
+  `webapp/templates/base.html` is the shared shell; `index.html`, `result.html`,
+  `error.html` extend it via `{% block content %}`.
+- Styling is one plain CSS file, `webapp/static/style.css`, using a small
+  hand-rolled design-token system (CSS custom properties) — no Tailwind, no
+  component library.
+- A little vanilla JS in `index.html` (no build step, no framework): drag-and-drop
+  styling for the file input, and disabling the submit button on submit.
+- **Any redesign needs to stay implementable as HTML + CSS (+ optionally
+  small vanilla JS) inside these same three Jinja2 templates** — the `{{ ... }}`
+  variable interpolations and `{% for/if %}` loops in the templates below are
+  load-bearing (real data), not placeholder content, and must be preserved
+  even if every visual element around them changes.
+- Light **and** dark mode both need to work — currently driven automatically by
+  `prefers-color-scheme` (no manual toggle in the UI).
+- Must be responsive — real users will open this on phones to check a form
+  before printing it at a computer lab/office.
+
+**Current visual system** (free to keep, evolve, or fully replace):
+spacing scale 4/8/12/16/24/32/48/64px · type scale 12/13/14/16/20/24/32px ·
+radius 6px (controls) / 10px (cards) / 999px (pills) · one accent hue (blue,
+`hsl(217 88% 55%)`) used only for the primary button and focus rings · mostly
+neutral grays otherwise · content constrained to `max-width: 720px`, centered.
+
+### The three screens
+
+**1. Upload page (`/`, `index.html`)** — the entry point, a single form:
+- Heading: "DTR Helper" / subtext: "Fill the Student Assistant Daily Time
+  Record from a time-log spreadsheet."
+- Card 1, "1. Upload your time-log spreadsheet": a drag-and-drop file zone
+  (click or drag a `.xlsx`), hint text "Click to choose a file, or drag it
+  here" / ".xlsx only, up to 4 MB", plus an explainer paragraph about the
+  ONLINE/ONSITE column format. Once a file is chosen, the zone should show
+  "Selected: <filename>" instead of the empty-state prompt.
+- Card 2, "2. Confirm the details on the form (optional)": a "Name override"
+  text field (placeholder "Leave blank to use the name from the spreadsheet"),
+  then a 2-column grid of Term / School Year / Office / Supervisor text
+  fields, pre-filled with defaults.
+- One full-width primary button: "Generate DTR" (becomes "Generating…" and
+  disables itself on submit — this is a real network wait, generation of a
+  multi-week Word doc isn't instant).
+
+**2. Results page (`result.html`)** — shown after a successful upload:
+- A green success banner: "Your DTR is ready. Parsed *N* time entries into
+  *N* weeks for *Name*."
+- *Conditionally*, an amber warning banner listing anomalies (things skipped
+  or flagged — e.g. a Sunday entry the form has no row for, or a missing
+  time-in/out) — this list can be empty (0 items) or fairly long (10+ items)
+  and needs to degrade gracefully either way.
+- A card with 3 stat tiles (Weeks filled / Time entries / Total hours), a
+  primary "Download <filename>" button, a secondary "Start over" button, and
+  a hint that the file only exists on this page (refreshing loses it — see
+  *why this matters* below).
+- A card listing every week included: date range, weekly total hours, and a
+  one-line summary per day worked (e.g. "Wed 04/22/26 (2 sessions)"), with a
+  small warning badge if that week had Sunday entries excluded from the form.
+  This list can be 1 week or 20+ weeks long — needs a sane long-list treatment.
+
+**3. Error page (`error.html`)** — shown when generation fails:
+- A red banner with a short headline ("Couldn't generate the DTR.") and a
+  specific, human-readable reason (e.g. "That file isn't a valid .xlsx
+  workbook…", "No usable Monday–Saturday time entries were found…").
+- *Conditionally*, a card listing raw diagnostic details (anomalies) for
+  troubleshooting.
+- A single "Try again" button back to the upload page.
+
+### Why this matters (don't design these away)
+
+- **The download button is not a link to a file on a server** — it's an
+  `<a download>` with the entire `.docx` embedded as a base64 `data:` URI.
+  This is a deliberate architecture choice (the app runs as a stateless
+  serverless function on Vercel), so "download" is instant/local with no
+  network request, but the file really does stop existing the moment you
+  navigate away or refresh. Any redesign should keep this expectation clear
+  to the user rather than implying a durable, revisitable download link.
+- **Anomalies are the app's most important trust signal.** This tool silently
+  drops data it can't confidently parse (a Sunday entry, a missing time-out);
+  surfacing that list *before* the user relies on the generated document is
+  the whole point — don't bury or minimize it.
+- The two-card upload form is really one step conceptually (upload +
+  optionally tweak fields, then one submit) — the "1. / 2." numbering is a
+  weak stand-in for a clearer sense of progress/order, open to improvement.
+
+### Known rough edges (fair game to fix)
+
+- The upload page's two cards and the plain SVG upload-cloud icon read as
+  generic/utilitarian — there's no real branding or personality to the
+  file-drop icon or the page as a whole.
+- The stat row / week-list on the results page is plain text-in-boxes; for
+  20+ weeks it just becomes a long, undifferentiated scroll.
+- No visual distinction between the "optional" identity fields and file
+  upload in terms of visual weight — currently equal-sized cards even though
+  step 1 is required and step 2 is all-optional overrides.
+- No loading/progress feedback beyond the button label change — generating
+  many weeks can take a couple of seconds.
 
 ---
 
@@ -48,8 +161,10 @@ with the daily hours, weekly totals, and "Assigned Work" all filled in for you.
 | Path | Purpose |
 | --- | --- |
 | `dtr/` | The reusable engine: parsing, week-grouping, and Word generation. Used by both the web app and the CLI. |
-| `webapp/` | The Flask web app (routes, in-memory download store, HTML templates, CSS). |
-| `run_web.py` | Starts the web app (`python run_web.py`). |
+| `webapp/` | The Flask web app (routes, HTML templates, CSS). |
+| `run_web.py` | Starts the web app locally (`python run_web.py`). |
+| `api/index.py` | Vercel serverless entrypoint — exposes the same Flask app for deployment. |
+| `vercel.json`, `.vercelignore` | Vercel deployment config (see [Deploying to Vercel](#deploying-to-vercel)). |
 | `dtr_generator.py` | The command-line entry point. |
 | `EMPTY_DTR.docx` | The official blank DTR template that gets filled. **Required.** |
 | `requirements.txt` | The Python libraries needed. |
@@ -153,7 +268,7 @@ python run_web.py
 
 Then open **http://127.0.0.1:5000** in a browser:
 
-1. Upload your `.xlsx` spreadsheet (max 5 MB).
+1. Upload your `.xlsx` spreadsheet (max 4 MB).
 2. Optionally override Name / Term / School Year / Office / Supervisor — leave
    blank to use the name from the spreadsheet and the defaults in
    [Configuration](#configuration).
@@ -161,9 +276,48 @@ Then open **http://127.0.0.1:5000** in a browser:
    found, total hours, and any anomalies (Sunday entries, missing times, etc.)
    *before* you download — review those, then click **Download**.
 
-The download link stays valid for 20 minutes; if it expires, just re-upload.
+The finished file is embedded directly in that results page (not stored on
+the server), so there's nothing to expire — but it also means leaving or
+refreshing the page means re-uploading to generate it again.
 
 To stop the server, press `Ctrl+C` in its terminal.
+
+---
+
+## Deploying to Vercel
+
+The web app deploys as-is to Vercel's Python serverless runtime — no code
+changes needed beyond what's already in the repo (`api/index.py`,
+`vercel.json`, `.vercelignore`).
+
+```powershell
+npm install -g vercel     # if you don't have the CLI yet
+vercel login
+vercel link                 # first time only, creates/links the project
+vercel env add DTR_SECRET_KEY production   # paste a random secret when prompted
+vercel env add DTR_SECRET_KEY preview      # same, for preview deployments
+vercel deploy --prod
+```
+
+**Why the app is safe to run serverless:** each request may land on a
+different function instance, so the app never relies on anything written to
+memory or disk surviving between requests — the generated `.docx` is
+returned as a `data:` URI embedded directly in the results page's download
+button rather than via a separate download endpoint. See
+[Architecture](#architecture--for-developers) for details.
+
+**After deploying:**
+- New Vercel projects have **Deployment Protection** (an SSO login wall) on
+  by default. If you want the app usable by anyone with the link, go to the
+  project on vercel.com → **Settings → Deployment Protection** and set it to
+  **Disabled** (or "Only Preview Deployments" to keep Production public while
+  protecting previews). This isn't something the CLI can toggle.
+- The 4 MB upload cap is intentional — it's under Vercel's serverless
+  request-body limit (4.5 MB), so you get the app's friendly error message
+  instead of a raw platform 413.
+- `DTR_SECRET_KEY` should be a real random value in production (e.g.
+  `python -c "import secrets; print(secrets.token_hex(32))"`), not the
+  `dev-only-change-me` fallback used locally.
 
 ---
 
@@ -250,7 +404,7 @@ ASSIGNED_LABELS = {
   the CLI both let it be overridden.
 - Change **`ENTRY_FONT_PT`** to make the entry text bigger/smaller.
 - Change **`ASSIGNED_LABELS`** if the duty wording ever changes.
-- The web app's upload size cap (default 5 MB) is `MAX_UPLOAD_MB` in `webapp/__init__.py`.
+- The web app's upload size cap (default 4 MB) is `MAX_UPLOAD_MB` in `webapp/__init__.py`.
 
 ---
 
@@ -262,8 +416,8 @@ ASSIGNED_LABELS = {
 | Browser shows "Unsupported file type" | Only `.xlsx` is accepted — older `.xls`, `.csv`, or Google Sheets exports need to be saved as `.xlsx` first. |
 | "That file isn't a valid .xlsx workbook…" | The file is corrupted, actually a different format, or password-protected. Re-save it from Excel as a plain `.xlsx` with no password. |
 | "No usable Monday–Saturday time entries were found" | The ONLINE/ONSITE labels are missing, or all entries were flagged as anomalies (check the list shown on the error page) — e.g. dates/times aren't recognizable, or every entry fell on a Sunday. |
-| Download link says expired / 404 | Generated files are kept in memory for 20 minutes only. Re-upload the spreadsheet to generate a fresh one. |
-| "That file is too large" | The web app caps uploads at 5 MB (configurable, see [Configuration](#configuration)); a normal DTR log is a few KB. |
+| Download button doesn't work / page feels huge | The file is embedded in the results page itself — if you left or refreshed that page, just re-upload to generate it again. |
+| "That file is too large" | The web app caps uploads at 4 MB (configurable, see [Configuration](#configuration)) — kept under Vercel's platform limit; a normal DTR log is a few KB. |
 | `PermissionError: ... DTR_output.docx` (CLI only) | The output file is open in Word. Close it and re-run (the tool will otherwise save a timestamped copy). |
 | `ERROR: spreadsheet not found` (CLI only) | Make sure your file is named `Sample DTR.xlsx` (or pass the full path as an argument), and is in the project or Downloads folder. |
 | `Template EMPTY_DTR.docx not found` | Keep `EMPTY_DTR.docx` in the project's root folder. |
@@ -281,11 +435,12 @@ dtr/            reusable engine — no I/O beyond what callers pass in
   defaults.py     DEFAULTS, ASSIGNED_LABELS, and other constants
 webapp/          Flask app
   __init__.py     app factory, upload-size limit, error handlers
-  routes.py       "/", "/generate", "/download/<token>"
-  storage.py      short-lived in-memory store for generated .docx bytes
+  routes.py       "/", "/generate"
   templates/      upload form, results page, error page
   static/         style.css
-run_web.py       dev server entry point
+run_web.py       local dev server entry point
+api/index.py     Vercel serverless entrypoint (same Flask app)
+vercel.json      Vercel routing config
 dtr_generator.py CLI entry point (thin wrapper around dtr.engine)
 ```
 
@@ -308,16 +463,21 @@ dtr_generator.py CLI entry point (thin wrapper around dtr.engine)
   without leaking stack traces; anything else is logged server-side and shown
   as a generic message.
 - **Download flow:** `POST /generate` renders a results page (weeks, totals,
-  anomalies) and stores the generated bytes in `webapp/storage.py` behind a
-  random token; `GET /download/<token>` streams them back. This lets the user
-  review anomalies before downloading, without ever touching a temp file on
-  disk (sidesteps the file-locking issues a saved-to-disk approach can hit).
-  Entries expire after 20 minutes.
-- **Defensive caps:** uploads are capped at 5 MB (`MAX_UPLOAD_MB`), label
-  search is bounded to the first 200 rows, and data parsing is bounded to 5000
-  rows — a real DTR log never gets close, so hitting these limits always
-  signals something's wrong with the input rather than truncating real data
-  silently (a note is added to the anomalies list if truncation happens).
+  anomalies) with the generated `.docx` embedded directly as a base64 `data:`
+  URI on the download button — no server-side download endpoint, no file
+  written to disk, nothing kept in memory between requests. This is
+  deliberate: as a serverless function, a given request can land on any
+  instance, so anything that needs to survive from `POST /generate` to a
+  later `GET /download/...` (e.g. an in-memory token store) is unreliable in
+  that environment. Embedding the result in the same response sidesteps the
+  problem entirely, and happens to also dodge the kind of file-locking issue
+  a saved-to-disk approach hit earlier in this project's history.
+- **Defensive caps:** uploads are capped at 4 MB (`MAX_UPLOAD_MB`, under
+  Vercel's serverless request-body limit), label search is bounded to the
+  first 200 rows, and data parsing is bounded to 5000 rows — a real DTR log
+  never gets close, so hitting these limits always signals something's wrong
+  with the input rather than truncating real data silently (a note is added
+  to the anomalies list if truncation happens).
 
 **PDF export (not yet implemented):**
 
@@ -327,8 +487,11 @@ dtr_generator.py CLI entry point (thin wrapper around dtr.engine)
   that can't run LibreOffice (e.g., plain Vercel functions), use a Docker image
   that bundles LibreOffice, or a conversion service.
 
-**Deploying:** `run_web.py` uses Flask's dev server, which is fine for local/LAN
-use. For a real deployment, run the `webapp.create_app()` factory under a
-production WSGI server (e.g. `waitress-serve --call webapp:create_app`) behind
-a reverse proxy, and set `DTR_SECRET_KEY` to a real secret via environment
-variable instead of the `dev-only-change-me` default.
+**Deploying:** `run_web.py` uses Flask's dev server, fine for local/LAN use.
+For Vercel, see [Deploying to Vercel](#deploying-to-vercel) — no extra WSGI
+server needed, `api/index.py` exposes the same `webapp.create_app()` app
+directly to Vercel's Python runtime. For a traditional host instead, run the
+`webapp.create_app()` factory under a production WSGI server (e.g.
+`waitress-serve --call webapp:create_app`) behind a reverse proxy. Either way,
+set `DTR_SECRET_KEY` to a real secret via environment variable instead of the
+`dev-only-change-me` default.

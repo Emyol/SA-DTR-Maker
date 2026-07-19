@@ -4,7 +4,9 @@ import os
 
 from flask import Flask, render_template
 
-MAX_UPLOAD_MB = 5
+# Kept under Vercel's serverless function request-body limit (4.5 MB) so our
+# own check is the one that fires with a friendly message, not a platform 413.
+MAX_UPLOAD_MB = 4
 
 
 def create_app():

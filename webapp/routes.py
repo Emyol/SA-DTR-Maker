@@ -1,14 +1,14 @@
 """HTTP routes for the DTR web app."""
 
+import base64
 import io
 import os
 import re
 
-from flask import Blueprint, current_app, render_template, request, send_file, abort
+from flask import Blueprint, current_app, render_template, request
 
 from dtr import engine
 from dtr.defaults import DEFAULTS
-from . import storage
 
 bp = Blueprint("dtr", __name__)
 
@@ -106,12 +106,18 @@ def generate():
         ), 500
 
     filename = _safe_download_name(ident["name"])
-    token = storage.put(docx_bytes, filename)
     total_hours = sum(w["total"] for w in weeks)
+    # Embed the file as a data: URI rather than a server-side download token:
+    # this runs as a stateless serverless function (Vercel), so nothing
+    # written to memory or disk in this request is guaranteed to still be
+    # around by the time a second request (the download) arrives — it might
+    # land on a different instance entirely. Putting the bytes directly in
+    # the response the browser already has sidesteps that.
+    docx_b64 = base64.b64encode(docx_bytes).decode("ascii")
 
     return render_template(
         "result.html",
-        token=token,
+        docx_b64=docx_b64,
         filename=filename,
         ident=ident,
         weeks=weeks,
@@ -120,17 +126,4 @@ def generate():
         anomalies=anomalies,
         fmt_hours=engine.fmt_hours,
         fmt_date=engine.fmt_date,
-    )
-
-
-@bp.get("/download/<token>")
-def download(token):
-    entry = storage.get(token)
-    if entry is None:
-        abort(404, description="This download link has expired. Please upload your spreadsheet again.")
-    return send_file(
-        io.BytesIO(entry["data"]),
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        as_attachment=True,
-        download_name=entry["filename"],
     )
