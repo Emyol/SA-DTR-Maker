@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}DTR Helper — Upload{% endblock %}
+{% block content %}
+<form action="{{ url_for('dtr.generate') }}" method="post" enctype="multipart/form-data" novalidate>
+  <div class="card">
+    <h2 class="card-title">1. Upload your time-log spreadsheet</h2>
+
+    <label class="file-drop" id="file-drop">
+      <input type="file" name="spreadsheet" id="file-input" accept=".xlsx" required>
+      <svg class="file-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="file-drop-title">Click to choose a file, or drag it here</div>
+      <div class="file-drop-hint">.xlsx only, up to 5 MB</div>
+      <div class="file-drop-selected" id="file-drop-selected"></div>
+    </label>
+    <p class="hint" style="margin-top:var(--space-2);">
+      Two side-by-side logs — ONLINE and ONSITE — each with real Excel dates and
+      times. Name is read from your sheet automatically; the layout can be
+      shifted from the sample as long as the ONLINE/ONSITE labels are present.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">2. Confirm the details on the form (optional)</h2>
+    <div class="field">
+      <label class="label" for="name">Name override</label>
+      <input class="input" type="text" id="name" name="name" placeholder="Leave blank to use the name from the spreadsheet" maxlength="200">
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="label" for="term">Term</label>
+        <input class="input" type="text" id="term" name="term" value="{{ defaults.term }}" maxlength="200">
+      </div>
+      <div class="field">
+        <label class="label" for="school_year">School Year</label>
+        <input class="input" type="text" id="school_year" name="school_year" value="{{ defaults.school_year }}" maxlength="200">
+      </div>
+      <div class="field">
+        <label class="label" for="office">Office</label>
+        <input class="input" type="text" id="office" name="office" value="{{ defaults.office }}" maxlength="200">
+      </div>
+      <div class="field">
+        <label class="label" for="supervisor">Supervisor</label>
+        <input class="input" type="text" id="supervisor" name="supervisor" value="{{ defaults.supervisor }}" maxlength="200">
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary" id="submit-btn" style="margin-top:var(--space-6);">
+    Generate DTR
+  </button>
+</form>
+
+<script>
+  (function () {
+    var drop = document.getElementById("file-drop");
+    var input = document.getElementById("file-input");
+    var selected = document.getElementById("file-drop-selected");
+    var form = drop.closest("form");
+    var submitBtn = document.getElementById("submit-btn");
+
+    function showFile() {
+      if (input.files && input.files[0]) {
+        selected.textContent = "Selected: " + input.files[0].name;
+        drop.classList.add("has-file");
+      } else {
+        drop.classList.remove("has-file");
+      }
+    }
+    input.addEventListener("change", showFile);
+
+    ["dragenter", "dragover"].forEach(function (evt) {
+      drop.addEventListener(evt, function (e) {
+        e.preventDefault();
+        drop.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (evt) {
+      drop.addEventListener(evt, function (e) {
+        e.preventDefault();
+        drop.classList.remove("is-dragover");
+      });
+    });
+    drop.addEventListener("drop", function (e) {
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        showFile();
+      }
+    });
+
+    form.addEventListener("submit", function () {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Generating…";
+    });
+  })();
+</script>
+{% endblock %}

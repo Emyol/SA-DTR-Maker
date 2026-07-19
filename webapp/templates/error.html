@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}DTR Helper — Something's off{% endblock %}
+{% block content %}
+
+<div class="alert alert-danger">
+  <p><strong>Couldn't generate the DTR.</strong></p>
+  <p>{{ message }}</p>
+</div>
+
+{% if anomalies %}
+<div class="card">
+  <h2 class="card-title">Details from the spreadsheet</h2>
+  <ul class="small muted" style="padding-left:var(--space-4);margin:0;">
+    {% for a in anomalies %}
+    <li style="margin-bottom:var(--space-1);">{{ a }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<a class="btn btn-primary" href="{{ url_for('dtr.index') }}" style="margin-top:var(--space-6);">Try again</a>
+
+{% endblock %}

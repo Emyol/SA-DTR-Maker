@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}DTR Helper — Ready{% endblock %}
+{% block content %}
+
+<div class="alert alert-success">
+  <p><strong>Your DTR is ready.</strong> Parsed {{ entries_count }} time entr{{ 'y' if entries_count == 1 else 'ies' }} into {{ weeks|length }} week{{ '' if weeks|length == 1 else 's' }} for {{ ident.name or "(no name found)" }}.</p>
+</div>
+
+{% if anomalies %}
+<div class="alert alert-warning">
+  <p><strong>{{ anomalies|length }} item{{ '' if anomalies|length == 1 else 's' }} to double-check</strong> — these were skipped or flagged, not filled into the form:</p>
+  <ul>
+    {% for a in anomalies %}
+    <li>{{ a }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-value">{{ weeks|length }}</div>
+      <div class="stat-label">Weeks filled</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">{{ entries_count }}</div>
+      <div class="stat-label">Time entries</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">{{ fmt_hours(total_hours) }}</div>
+      <div class="stat-label">Total hours</div>
+    </div>
+  </div>
+
+  <a class="btn btn-primary" href="{{ url_for('dtr.download', token=token) }}">
+    Download {{ filename }}
+  </a>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('dtr.index') }}" style="flex:1;">Start over</a>
+  </div>
+  <p class="hint" style="margin-top:var(--space-3);">This download link expires after 20 minutes — regenerate if it stops working.</p>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Weeks included</h2>
+  <div class="week-list">
+    {% for w in weeks %}
+    <div class="week">
+      <div class="week-header">
+        <span>{{ w.monday.strftime('%b %d, %Y') }} (Mon) &ndash; {{ w.saturday.strftime('%b %d, %Y') }} (Sat)</span>
+        <span class="week-total">{{ fmt_hours(w.total) }} hrs</span>
+      </div>
+      <div class="week-days">
+        {% for wd in range(6) %}
+          {% if w.days.get(wd) %}
+          <span>{{ ["Mon","Tue","Wed","Thu","Fri","Sat"][wd] }} {{ fmt_date(w.days[wd][0].date) }} ({{ w.days[wd]|length }} session{{ '' if w.days[wd]|length == 1 else 's' }})</span>
+          {% endif %}
+        {% endfor %}
+        {% if w.days.get(6) %}
+          <span class="badge badge-warning">Sunday entries not on form</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
