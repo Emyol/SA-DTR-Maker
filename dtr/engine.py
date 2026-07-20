@@ -23,6 +23,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from .defaults import (
     ENTRY_FONT_PT,
+    SPLIT_THRESHOLD_HOURS,
     ASSIGNED_LABELS,
     WEEKDAY_NAMES,
     TITLE_MARK,
@@ -128,6 +129,20 @@ def detect_layout(ws):
     return name, blocks
 
 
+def split_session(start, end, threshold_hours=SPLIT_THRESHOLD_HOURS):
+    """Slice a same-day (start, end) datetime span into chunks of at most
+    threshold_hours each. A span within the threshold (or non-positive, e.g.
+    out<=in) comes back as a single unchanged segment."""
+    segments = []
+    chunk_start = start
+    while (end - chunk_start).total_seconds() / 3600.0 > threshold_hours:
+        chunk_end = chunk_start + dt.timedelta(hours=threshold_hours)
+        segments.append((chunk_start, chunk_end))
+        chunk_start = chunk_end
+    segments.append((chunk_start, end))
+    return segments
+
+
 def parse_workbook(source):
     """Parse a spreadsheet into (name, entries, anomalies).
 
@@ -184,15 +199,16 @@ def parse_workbook(source):
                 anomalies.append(
                     f"Row {row} {source}: {d} out<=in (in={tin}, out={tout})."
                 )
-            entries.append({
-                "date": d,
-                "weekday": d.weekday(),          # Mon=0 .. Sun=6
-                "time_in": tin,
-                "time_out": tout,
-                "hours": hours,
-                "source": source,
-                "assigned": ASSIGNED_LABELS.get(source, source),
-            })
+            for seg_start, seg_end in split_session(start, end):
+                entries.append({
+                    "date": d,
+                    "weekday": d.weekday(),          # Mon=0 .. Sun=6
+                    "time_in": seg_start.time(),
+                    "time_out": seg_end.time(),
+                    "hours": (seg_end - seg_start).total_seconds() / 3600.0,
+                    "source": source,
+                    "assigned": ASSIGNED_LABELS.get(source, source),
+                })
 
     if truncated:
         anomalies.append(

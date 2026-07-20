@@ -368,6 +368,7 @@ To get a **PDF**, open the `.docx` in Word and use **File → Save As → PDF**.
 - **Weekly grouping:** entries are grouped by the week (Monday–Saturday) they fall in.
   Only weeks that have at least one entry get a form. Weeks are laid out **two forms per page**.
 - **Hours per session:** `Time Out − Time In` (the spreadsheet's DURATION columns are ignored).
+- **Long sessions get split:** any session longer than `SPLIT_THRESHOLD_HOURS` (default 4 hours) is broken into same-day chunks of at most that many hours each, so no single line ever shows more hours than the threshold.
 - **Multiple sessions/day:** stacked on separate lines within the same cell, with each session's hours on its own line.
 - **Weekly total:** sum of all session hours that week, shown both in the totals row
   and in the top-right "Total Hours Rendered: _N_ Hours" box (value shown in 12pt bold).
@@ -383,6 +384,8 @@ Simple settings live in `dtr/defaults.py`:
 
 ```python
 ENTRY_FONT_PT = 9    # font size for the filled-in time/date/hours/assigned cells
+
+SPLIT_THRESHOLD_HOURS = 4    # sessions longer than this get split into same-day chunks of at most this many hours
 
 DEFAULTS = {
     "term": "3rd",
@@ -403,6 +406,7 @@ ASSIGNED_LABELS = {
   [Preparing your spreadsheet](#preparing-your-spreadsheet)); the web form and
   the CLI both let it be overridden.
 - Change **`ENTRY_FONT_PT`** to make the entry text bigger/smaller.
+- Change **`SPLIT_THRESHOLD_HOURS`** to adjust how long a session can be before it gets split into same-day chunks.
 - Change **`ASSIGNED_LABELS`** if the duty wording ever changes.
 - The web app's upload size cap (default 4 MB) is `MAX_UPLOAD_MB` in `webapp/__init__.py`.
 
