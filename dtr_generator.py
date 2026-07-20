@@ -30,6 +30,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 ENTRY_FONT_PT = 9    # font size for the filled-in time/date/hours/assigned cells
 
+SPLIT_THRESHOLD_HOURS = 4    # sessions longer than this get split into same-day chunks of at most this many hours
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOWNLOADS = os.path.join(os.path.expanduser("~"), "Downloads")
 
@@ -88,6 +90,20 @@ def as_date(v):
     return None
 
 
+def split_session(start, end, threshold_hours=SPLIT_THRESHOLD_HOURS):
+    """Slice a same-day (start, end) datetime span into chunks of at most
+    threshold_hours each. A span within the threshold (or non-positive, e.g.
+    out<=in) comes back as a single unchanged segment."""
+    segments = []
+    chunk_start = start
+    while (end - chunk_start).total_seconds() / 3600.0 > threshold_hours:
+        chunk_end = chunk_start + dt.timedelta(hours=threshold_hours)
+        segments.append((chunk_start, chunk_end))
+        chunk_start = chunk_end
+    segments.append((chunk_start, end))
+    return segments
+
+
 def parse_workbook(xlsx_path):
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     ws = wb.active
@@ -124,15 +140,16 @@ def parse_workbook(xlsx_path):
                 anomalies.append(
                     f"Row {row} {source}: {d} out<=in (in={tin}, out={tout})."
                 )
-            entries.append({
-                "date": d,
-                "weekday": d.weekday(),          # Mon=0 .. Sun=6
-                "time_in": tin,
-                "time_out": tout,
-                "hours": hours,
-                "source": source,
-                "assigned": ASSIGNED_LABELS.get(source, source),
-            })
+            for seg_start, seg_end in split_session(start, end):
+                entries.append({
+                    "date": d,
+                    "weekday": d.weekday(),          # Mon=0 .. Sun=6
+                    "time_in": seg_start.time(),
+                    "time_out": seg_end.time(),
+                    "hours": (seg_end - seg_start).total_seconds() / 3600.0,
+                    "source": source,
+                    "assigned": ASSIGNED_LABELS.get(source, source),
+                })
 
     return name, entries, anomalies
 
