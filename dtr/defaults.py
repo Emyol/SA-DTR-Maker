@@ -2,6 +2,8 @@
 
 ENTRY_FONT_PT = 9    # font size for the filled-in time/date/hours/assigned cells
 
+SPLIT_THRESHOLD_HOURS = 4    # sessions longer than this get split into same-day chunks of at most this many hours
+
 DEFAULTS = {
     "term": "3rd",
     "school_year": "'25 - '26",
