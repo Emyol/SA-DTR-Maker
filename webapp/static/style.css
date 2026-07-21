@@ -213,6 +213,70 @@ a:hover { color: var(--accent-text-hover); }
   font-weight: 600;
 }
 
+/* Input method ------------------------------------------------------------*/
+.input-method {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 4px;
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.method-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.method-option:hover { color: var(--heading-2); }
+.method-option:has(input:checked) {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: var(--shadow-card);
+}
+.method-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.method-option:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px oklch(0.55 0.13 155 / 0.18);
+}
+.input-panel--hidden { display: none; }
+.paste-area {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.paste-help {
+  margin: -4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.form-error {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  color: oklch(0.42 0.16 25);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .input-method { grid-template-columns: 1fr; }
+}
+
 /* Dropzone ---------------------------------------------------------------*/
 .dropzone {
   display: flex;

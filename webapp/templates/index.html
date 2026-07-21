@@ -15,32 +15,64 @@
   <section class="card">
     <div class="step-row">
       <span class="step-badge step-badge--active">1</span>
-      <h2 class="step-title step-title--active">Upload your time-log spreadsheet</h2>
+      <h2 class="step-title step-title--active">Provide your time-log values</h2>
     </div>
-    <p class="step-sub">Required</p>
+    <p class="step-sub">Required · upload the workbook or paste the same copied cells</p>
 
-    <label class="dropzone" id="file-drop">
-      <input type="file" name="spreadsheet" id="file-input" accept=".xlsx" required>
-      <div class="dropzone-empty">
-        <span class="dropzone-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        </span>
-        <div class="dropzone-title">Click to choose a file, or drag it here</div>
-        <div class="dropzone-hint">.xlsx only · up to 4 MB</div>
-      </div>
-      <div class="dropzone-selected">
-        <span class="dropzone-check">✓</span>
-        <div>
-          <div class="dropzone-selected-label">Selected</div>
-          <div class="dropzone-selected-name" id="dropzone-filename"></div>
-          <div class="dropzone-selected-hint">Click to choose a different file</div>
+    <fieldset class="input-method" aria-label="Choose input method">
+      <label class="method-option">
+        <input type="radio" name="input_method" value="upload" checked>
+        <span>Upload .xlsx</span>
+      </label>
+      <label class="method-option">
+        <input type="radio" name="input_method" value="paste">
+        <span>Paste values</span>
+      </label>
+    </fieldset>
+
+    <div class="input-panel" id="upload-panel">
+      <label class="dropzone" id="file-drop">
+        <input type="file" name="spreadsheet" id="file-input" accept=".xlsx">
+        <div class="dropzone-empty">
+          <span class="dropzone-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </span>
+          <div class="dropzone-title">Click to choose a file, or drag it here</div>
+          <div class="dropzone-hint">.xlsx only · up to 4 MB</div>
         </div>
+        <div class="dropzone-selected">
+          <span class="dropzone-check">✓</span>
+          <div>
+            <div class="dropzone-selected-label">Selected</div>
+            <div class="dropzone-selected-name" id="dropzone-filename"></div>
+            <div class="dropzone-selected-hint">Click to choose a different file</div>
+          </div>
+        </div>
+      </label>
+    </div>
+
+    <div class="input-panel input-panel--hidden" id="paste-panel" aria-hidden="true">
+      <div class="field">
+        <label class="field-label" for="pasted-table">Pasted Excel values</label>
+        <textarea
+          class="field-input paste-area"
+          id="pasted-table"
+          name="pasted_table"
+          rows="10"
+          disabled
+          placeholder="Copy the ONLINE/ONSITE cells from Excel or Google Sheets, then paste them here. Include the headers if possible."></textarea>
       </div>
-    </label>
+      <p class="paste-help">
+        Expected columns: ONLINE Date, Time In, Time Out, Duration, then ONSITE Date, Time In, Time Out, Duration.
+        Duration is ignored; hours are computed from Time In and Time Out.
+      </p>
+    </div>
+
+    <div class="form-error" id="input-error" role="alert" hidden></div>
 
     <div class="info-box">
       <span class="info-icon">i</span>
-      <span>Put virtual duties under the <strong>ONLINE</strong> columns and onsite duties under <strong>ONSITE</strong>. Copy the sample workbook and replace the data — cell positions are auto-detected.</span>
+      <span>Put virtual duties under the <strong>ONLINE</strong> columns and onsite duties under <strong>ONSITE</strong>. You can upload the sample workbook, or copy those same cells and paste them here.</span>
     </div>
   </section>
 
@@ -86,6 +118,32 @@
     var filename = document.getElementById("dropzone-filename");
     var form = drop.closest("form");
     var submitBtn = document.getElementById("submit-btn");
+    var methodRadios = Array.prototype.slice.call(document.querySelectorAll("input[name='input_method']"));
+    var uploadPanel = document.getElementById("upload-panel");
+    var pastePanel = document.getElementById("paste-panel");
+    var pasteInput = document.getElementById("pasted-table");
+    var inputError = document.getElementById("input-error");
+
+    function selectedMethod() {
+      var selected = methodRadios.filter(function (radio) { return radio.checked; })[0];
+      return selected ? selected.value : "upload";
+    }
+
+    function setError(message) {
+      inputError.textContent = message || "";
+      inputError.hidden = !message;
+    }
+
+    function updateInputMode() {
+      var usePaste = selectedMethod() === "paste";
+      uploadPanel.classList.toggle("input-panel--hidden", usePaste);
+      pastePanel.classList.toggle("input-panel--hidden", !usePaste);
+      uploadPanel.setAttribute("aria-hidden", String(usePaste));
+      pastePanel.setAttribute("aria-hidden", String(!usePaste));
+      input.disabled = usePaste;
+      pasteInput.disabled = !usePaste;
+      setError("");
+    }
 
     function showFile() {
       if (input.files && input.files[0]) {
@@ -110,10 +168,30 @@
       }
     });
 
-    form.addEventListener("submit", function () {
+    methodRadios.forEach(function (radio) {
+      radio.addEventListener("change", updateInputMode);
+    });
+
+    form.addEventListener("submit", function (e) {
+      if (selectedMethod() === "paste") {
+        if (!pasteInput.value.trim()) {
+          e.preventDefault();
+          setError("Paste the copied Excel values before generating.");
+          pasteInput.focus();
+          return;
+        }
+      } else if (!input.files || !input.files.length) {
+        e.preventDefault();
+        setError("Choose an .xlsx file, or switch to Paste values.");
+        input.focus();
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.textContent = "Generating…";
     });
+
+    updateInputMode();
   })();
 </script>
 {% endblock %}
