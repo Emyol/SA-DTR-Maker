@@ -147,15 +147,16 @@ def _append_entry(entries, anomalies, row_label, source, d, tin, tout):
         anomalies.append(
             f"{row_label} {source}: {d} out<=in (in={tin}, out={tout})."
         )
-    entries.append({
-        "date": d,
-        "weekday": weekday,          # Mon=0 .. Sat=5
-        "time_in": tin,
-        "time_out": tout,
-        "hours": hours,
-        "source": source,
-        "assigned": ASSIGNED_LABELS.get(source, source),
-    })
+    for seg_start, seg_end in split_session(start, end):
+        entries.append({
+            "date": d,
+            "weekday": weekday,          # Mon=0 .. Sat=5
+            "time_in": seg_start.time(),
+            "time_out": seg_end.time(),
+            "hours": (seg_end - seg_start).total_seconds() / 3600.0,
+            "source": source,
+            "assigned": ASSIGNED_LABELS.get(source, source),
+        })
 
 
 def find_label_cell(ws, label, max_rows=MAX_LABEL_SEARCH_ROWS):
