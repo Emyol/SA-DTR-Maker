@@ -262,29 +262,6 @@ def parse_workbook(source):
             if d is None:
                 continue
             _append_entry(entries, anomalies, f"Row {row}", source, d, tin, tout)
-            if tin is None or tout is None:
-                anomalies.append(
-                    f"Row {row} {source}: date {d} has a missing "
-                    f"time-in/time-out (in={tin}, out={tout}) - skipped."
-                )
-                continue
-            start = dt.datetime.combine(d, tin)
-            end = dt.datetime.combine(d, tout)
-            hours = (end - start).total_seconds() / 3600.0
-            if hours <= 0:
-                anomalies.append(
-                    f"Row {row} {source}: {d} out<=in (in={tin}, out={tout})."
-                )
-            for seg_start, seg_end in split_session(start, end):
-                entries.append({
-                    "date": d,
-                    "weekday": d.weekday(),          # Mon=0 .. Sun=6
-                    "time_in": seg_start.time(),
-                    "time_out": seg_end.time(),
-                    "hours": (seg_end - seg_start).total_seconds() / 3600.0,
-                    "source": source,
-                    "assigned": ASSIGNED_LABELS.get(source, source),
-                })
 
     if truncated:
         anomalies.append(
