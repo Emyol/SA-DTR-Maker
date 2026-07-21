@@ -75,12 +75,86 @@ def as_date(v):
         return v
     if isinstance(v, str):
         s = v.strip()
+        try:
+            return dt.datetime.fromisoformat(s).date()
+        except ValueError:
+            pass
         for fmt in DATE_TEXT_FORMATS:
             try:
                 return dt.datetime.strptime(s, fmt).date()
             except ValueError:
                 continue
     return None
+
+
+def _normalize_pasted_cell(value):
+    return value.strip().strip('"') if isinstance(value, str) else value
+
+
+def _parse_pasted_rows(text):
+    """Return rows copied from Excel/Sheets as a list of cell lists.
+
+    Excel and Google Sheets place tab-separated rows on the clipboard. Blank
+    lines are discarded, but blank cells inside a row are preserved because
+    the ONLINE/ONSITE layout depends on column positions.
+    """
+    rows = []
+    for raw_line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if not raw_line.strip():
+            continue
+        rows.append([_normalize_pasted_cell(c) for c in raw_line.split("\t")])
+    return rows
+
+
+def _find_label_in_rows(rows, label):
+    target = label.strip().upper()
+    for row_idx, row in enumerate(rows):
+        for col_idx, value in enumerate(row):
+            if str(value or "").strip().upper() == target:
+                return row_idx, col_idx
+    return None
+
+
+def _cell_from_rows(rows, row_idx, col_idx):
+    if row_idx < 0 or row_idx >= len(rows):
+        return ""
+    row = rows[row_idx]
+    if col_idx < 0 or col_idx >= len(row):
+        return ""
+    return row[col_idx]
+
+
+def _append_entry(entries, anomalies, row_label, source, d, tin, tout):
+    if tin is None or tout is None:
+        anomalies.append(
+            f"{row_label} {source}: date {d} has a missing "
+            f"time-in/time-out (in={tin}, out={tout}) - skipped."
+        )
+        return
+
+    weekday = d.weekday()
+    if weekday == 6:
+        anomalies.append(
+            f"{row_label} {source}: Sunday entry {d} has no row on the DTR form - skipped."
+        )
+        return
+
+    start = dt.datetime.combine(d, tin)
+    end = dt.datetime.combine(d, tout)
+    hours = (end - start).total_seconds() / 3600.0
+    if hours <= 0:
+        anomalies.append(
+            f"{row_label} {source}: {d} out<=in (in={tin}, out={tout})."
+        )
+    entries.append({
+        "date": d,
+        "weekday": weekday,          # Mon=0 .. Sat=5
+        "time_in": tin,
+        "time_out": tout,
+        "hours": hours,
+        "source": source,
+        "assigned": ASSIGNED_LABELS.get(source, source),
+    })
 
 
 def find_label_cell(ws, label, max_rows=MAX_LABEL_SEARCH_ROWS):
@@ -171,33 +245,93 @@ def parse_workbook(source):
             tout = as_time(ws[f"{out_col}{row}"].value)
             if d is None:
                 continue
-            if tin is None or tout is None:
-                anomalies.append(
-                    f"Row {row} {source}: date {d} has a missing "
-                    f"time-in/time-out (in={tin}, out={tout}) - skipped."
-                )
-                continue
-            start = dt.datetime.combine(d, tin)
-            end = dt.datetime.combine(d, tout)
-            hours = (end - start).total_seconds() / 3600.0
-            if hours <= 0:
-                anomalies.append(
-                    f"Row {row} {source}: {d} out<=in (in={tin}, out={tout})."
-                )
-            entries.append({
-                "date": d,
-                "weekday": d.weekday(),          # Mon=0 .. Sun=6
-                "time_in": tin,
-                "time_out": tout,
-                "hours": hours,
-                "source": source,
-                "assigned": ASSIGNED_LABELS.get(source, source),
-            })
+            _append_entry(entries, anomalies, f"Row {row}", source, d, tin, tout)
 
     if truncated:
         anomalies.append(
             f"Workbook has more than {MAX_DATA_ROWS} data rows; only the "
             f"first {MAX_DATA_ROWS} (rows {data_start}-{end_row}) were processed."
+        )
+
+    return name, entries, anomalies
+
+
+def detect_pasted_layout(rows):
+    """Detect ONLINE/ONSITE blocks in pasted spreadsheet values.
+
+    Returns (name, blocks), where each block is
+    (date_col_index, in_col_index, out_col_index, source, data_start_row_index).
+    If section labels are missing, falls back to an 8-column copied data range:
+    ONLINE date/in/out/duration followed by ONSITE date/in/out/duration.
+    """
+    blocks = []
+    name = ""
+    for label, source in (("ONLINE", "ONLINE"), ("ONSITE", "ONSITE")):
+        loc = _find_label_in_rows(rows, label)
+        if loc is None:
+            continue
+        label_row, col = loc
+        blocks.append((col, col + 1, col + 2, source, label_row + 2))
+        if not name:
+            name_val = _cell_from_rows(rows, label_row - 1, col)
+            if name_val:
+                name = str(name_val).strip()
+
+    if blocks:
+        return name, blocks
+
+    # Common paste: select only the 8 data/header columns, not the title row.
+    max_width = max((len(r) for r in rows), default=0)
+    if max_width >= 8:
+        data_start = 0
+        first_joined = " ".join(str(c or "").upper() for c in rows[0])
+        if "DATE" in first_joined and "TIME" in first_joined:
+            data_start = 1
+        return "", [(0, 1, 2, "ONLINE", data_start), (4, 5, 6, "ONSITE", data_start)]
+
+    return "", []
+
+
+def parse_pasted_table(text):
+    """Parse tab-separated values copied directly from Excel/Google Sheets.
+
+    The expected shape is the same as the workbook: ONLINE date/time-in/time-out
+    columns and ONSITE date/time-in/time-out columns. Duration columns may be
+    present but are ignored.
+    """
+    rows = _parse_pasted_rows(text or "")
+    if not rows:
+        raise WorkbookReadError("Paste the copied Excel values, or upload a .xlsx file.")
+
+    name, blocks = detect_pasted_layout(rows)
+    if not blocks:
+        raise WorkbookReadError(
+            "The pasted values do not look like the sample layout. Include the "
+            "ONLINE/ONSITE columns, or paste the 8 columns from Date through Duration "
+            "for both ONLINE and ONSITE."
+        )
+
+    entries = []
+    anomalies = []
+    data_start = min(b[4] for b in blocks)
+    end_row = min(len(rows), data_start + MAX_DATA_ROWS)
+    truncated = len(rows) > end_row
+
+    for row_idx in range(data_start, end_row):
+        for date_col, in_col, out_col, source, block_start in blocks:
+            if row_idx < block_start:
+                continue
+            d = as_date(_cell_from_rows(rows, row_idx, date_col))
+            tin = as_time(_cell_from_rows(rows, row_idx, in_col))
+            tout = as_time(_cell_from_rows(rows, row_idx, out_col))
+            if d is None:
+                continue
+            _append_entry(entries, anomalies, f"Pasted row {row_idx + 1}", source, d, tin, tout)
+
+    if truncated:
+        anomalies.append(
+            f"Pasted values have more than {MAX_DATA_ROWS} data rows; only the "
+            f"first {MAX_DATA_ROWS} rows were processed."
         )
 
     return name, entries, anomalies

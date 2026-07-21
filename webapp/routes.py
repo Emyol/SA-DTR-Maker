@@ -37,17 +37,6 @@ def index():
 
 @bp.post("/generate")
 def generate():
-    file = request.files.get("spreadsheet")
-    if file is None or file.filename == "":
-        return render_template("error.html", message="Please choose an .xlsx file to upload."), 400
-
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext != ALLOWED_EXTENSION:
-        return render_template(
-            "error.html",
-            message=f'Unsupported file type "{ext or "(none)"}" — please upload a .xlsx spreadsheet.',
-        ), 400
-
     if not os.path.exists(TEMPLATE_PATH):
         current_app.logger.error("Template EMPTY_DTR.docx missing at %s", TEMPLATE_PATH)
         return render_template(
@@ -55,22 +44,45 @@ def generate():
             message="The server is missing its DTR template file. Please contact the maintainer.",
         ), 500
 
-    raw = file.read()
-    if not raw:
-        return render_template("error.html", message="That file is empty."), 400
+    input_method = _clamp(request.form.get("input_method"), 20) or "upload"
+    use_paste = input_method == "paste"
 
     try:
-        parsed_name, entries, anomalies = engine.parse_workbook(io.BytesIO(raw))
+        if use_paste:
+            parsed_name, entries, anomalies = engine.parse_pasted_table(
+                request.form.get("pasted_table", "")
+            )
+        else:
+            file = request.files.get("spreadsheet")
+            if file is None or file.filename == "":
+                return render_template(
+                    "error.html",
+                    message="Please choose an .xlsx file to upload, or switch to Paste values.",
+                ), 400
+
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext != ALLOWED_EXTENSION:
+                return render_template(
+                    "error.html",
+                    message=f'Unsupported file type "{ext or "(none)"}" — please upload a .xlsx spreadsheet.',
+                ), 400
+
+            raw = file.read()
+            if not raw:
+                return render_template("error.html", message="That file is empty."), 400
+
+            parsed_name, entries, anomalies = engine.parse_workbook(io.BytesIO(raw))
     except engine.WorkbookReadError as exc:
         return render_template("error.html", message=str(exc)), 400
     except Exception:
-        current_app.logger.exception("Unexpected error parsing uploaded workbook")
+        current_app.logger.exception("Unexpected error parsing DTR input")
+        input_label = "pasted values" if use_paste else "spreadsheet"
         return render_template(
             "error.html",
             message=(
-                "Something went wrong reading that spreadsheet. Double-check it has "
-                "ONLINE/ONSITE columns with real Excel dates and times, matching the "
-                "sample layout."
+                f"Something went wrong reading the {input_label}. Double-check it has "
+                "ONLINE/ONSITE columns with recognizable dates and times, matching "
+                "the sample layout."
             ),
         ), 400
 
@@ -88,10 +100,10 @@ def generate():
         return render_template(
             "error.html",
             message=(
-                f"No usable Monday–Saturday time entries were found (parsed "
+                f"No usable Monday-Saturday time entries were found (parsed "
                 f"{len(entries)} raw entr{'y' if len(entries) == 1 else 'ies'} total). "
-                "Make sure dates/times are real Excel dates/times and the sheet has "
-                "ONLINE/ONSITE columns like the sample file."
+                "Make sure dates/times are recognizable and the input has ONLINE/ONSITE "
+                "columns like the sample file."
             ),
             anomalies=anomalies,
         ), 400
