@@ -616,7 +616,7 @@ def fill_week_block(block_els, doc, ident, week):
         set_cell_lines(cells[0], [WEEKDAY_NAMES[wd], fmt_date(d)])
         set_cell_lines(cells[1], [fmt_time(e["time_in"]) for e in day_entries])
         set_cell_lines(cells[2], [fmt_time(e["time_out"]) for e in day_entries])
-        set_cell_lines(cells[3], [fmt_hours(e["hours"]) for e in day_entries])
+        set_cell_lines(cells[3], [fmt_hours(sum(e["hours"] for e in day_entries))])
         set_cell_lines(cells[4], [e["assigned"] for e in day_entries])
 
     # figure out which column is "# OF HOURS RENDERED" from the header row
