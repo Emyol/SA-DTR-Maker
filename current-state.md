@@ -4,7 +4,7 @@
 > Keep it **true and short**: rewrite stale sections instead of appending to them. History goes in the Session Log, not in the sections above it.
 
 **Last updated:** 2026-11-27 (UTC+8): by Claude Code
-**Branch:** `main` · **Last commit:** `668957b`: changed facilitator name (template/defaults update below is uncommitted)
+**Branch:** `main` · **Last commit:** see `git log` (template update pushed 2026-11-27)
 **Overall status:** 🟢 on track
 
 ---
@@ -15,14 +15,14 @@ DTR Helper: turns a spreadsheet (or pasted table) of student-assistant time logs
 ## 2. Current milestone
 - **Milestone:** 1st term 2026-2027 template refresh
 - **Definition of done:** template + defaults updated; live site (https://sa-dtr-maker.vercel.app/) redeployed with them
-- **Progress:** template + defaults updated and verified locally; not yet committed or redeployed
+- **Progress:** template + defaults updated, verified, and pushed to main; live redeploy pending
 
 ## 3. What works (verified)
 - Upload `SAMPLE DTR.xlsx` → `/generate` returns a docx with 1st / 2026-2027 / Ms. Maria Fatima Dela Cruz headers and the new signatories in all 18 forms: verified 2026-11-27 via Flask test client + Word PDF export.
 - Live site matched commit `668957b` byte-for-byte (homepage, CSS, generated docx): verified 2026-11-27.
 
 ## 4. In progress
-- Template/defaults change: `EMPTY_DTR.docx`, `dtr/defaults.py`, `README.md`: next action: commit, push, and have the Vercel project owner redeploy.
+- Live redeploy of https://sa-dtr-maker.vercel.app/: waiting on the Vercel project owner (or Git auto-deploy).
 
 ## 5. Next up (prioritised)
 1. Redeploy https://sa-dtr-maker.vercel.app/ after the change is pushed.
@@ -59,7 +59,7 @@ DTR Helper: turns a spreadsheet (or pasted table) of student-assistant time logs
 ### 2026-11-27: Claude Code
 - Did: verified live Vercel site matches repo; updated template + defaults to 1st term 2026-2027 signatories; created project docs.
 - Verified: Flask test-client generation + Word PDF render of template.
-- Left open: commit/push/redeploy; confirm "Engr." for Kennedy P. Limbo.
+- Left open: live redeploy; confirm "Engr." for Kennedy P. Limbo.
 - Next session should: check whether the live site has been redeployed.
 
 ---
