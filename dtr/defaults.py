@@ -5,10 +5,10 @@ ENTRY_FONT_PT = 9    # font size for the filled-in time/date/hours/assigned cell
 SPLIT_THRESHOLD_HOURS = 4    # sessions longer than this get split into same-day chunks of at most this many hours
 
 DEFAULTS = {
-    "term": "3rd",
-    "school_year": "'25 - '26",
+    "term": "1st",
+    "school_year": "2026-2027",
     "office": "iCARE",
-    "supervisor": "Ms. Cherelyn Joy Padasas",
+    "supervisor": "Ms. Maria Fatima Dela Cruz",
 }
 
 ASSIGNED_LABELS = {
